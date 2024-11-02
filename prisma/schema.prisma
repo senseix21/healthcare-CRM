@@ -1,14 +1,204 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
+}
+
+// User model to manage all users (patients, doctors, admins) with role-based access control
+model User {
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  email            String           @unique
+  password         String? // Nullable for social sign-in users
+  role             UserRole         @default(PATIENT)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  provider         AuthProvider     @default(EMAIL) // For managing social logins
+  googleId         String?          @unique
+  facebookId       String?          @unique
+  profile          Profile?
+  patients         Patient[]        @relation("DoctorPatients")
+  appointments     Appointment[]
+  billing          Billing[]
+  paymentHistories PaymentHistory[]
+  Patient          Patient[]
+  Doctor           Doctor[]
+  Message          Message[]
+  sentMessages     Message[]        @relation("Sender")
+  receivedMessages Message[]        @relation("Recipient")
+}
+
+// Profile model to store detailed user profile information
+model Profile {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String           @unique @db.ObjectId
+  user           User             @relation(fields: [userId], references: [id])
+  name           String
+  dateOfBirth    DateTime?
+  gender         Gender?
+  phoneNumber    String?
+  address        String?
+  medicalHistory MedicalHistory[]
+}
+
+// Patient model representing patients in the system
+model Patient {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String           @db.ObjectId
+  user           User             @relation(fields: [userId], references: [id])
+  medicalHistory MedicalHistory[]
+  appointments   Appointment[]
+  doctorId       String?          @db.ObjectId
+  doctor         User?            @relation("DoctorPatients", fields: [doctorId], references: [id])
+  Doctor         Doctor?          @relation(fields: [doctorId], references: [id])
+}
+
+// Doctor model with additional fields for doctor-specific data
+model Doctor {
+  id           String                 @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String                 @db.ObjectId
+  user         User                   @relation(fields: [userId], references: [id])
+  specialty    String
+  experience   Int?
+  appointments Appointment[]
+  availability CalendarAvailability[]
+  patients     Patient[]
+}
+
+// MedicalHistory model to log patient health data
+model MedicalHistory {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  patientId String    @db.ObjectId
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  condition String
+  notes     String?
+  startDate DateTime
+  endDate   DateTime?
+  Profile   Profile?  @relation(fields: [profileId], references: [id])
+  profileId String?   @db.ObjectId
+}
+
+// Appointment model to track doctor-patient appointments
+model Appointment {
+  id        String               @id @default(auto()) @map("_id") @db.ObjectId
+  patientId String               @db.ObjectId
+  doctorId  String               @db.ObjectId
+  date      DateTime
+  status    AppointmentStatus
+  patient   Patient              @relation(fields: [patientId], references: [id])
+  doctor    Doctor               @relation(fields: [doctorId], references: [id])
+  history   AppointmentHistory[]
+  User      User?                @relation(fields: [userId], references: [id])
+  userId    String?              @db.ObjectId
+}
+
+// AppointmentHistory model to track changes in appointments
+model AppointmentHistory {
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId String            @db.ObjectId
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id])
+  status        AppointmentStatus
+  changeDate    DateTime          @default(now())
+}
+
+// CalendarAvailability model for doctors' availability
+model CalendarAvailability {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  doctorId  String   @db.ObjectId
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  dayOfWeek Int // 0 for Sunday, 6 for Saturday
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Billing model for patient payment and invoicing
+model Billing {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String           @db.ObjectId
+  user           User             @relation(fields: [userId], references: [id])
+  amount         Float
+  currency       String           @default("USD")
+  description    String
+  status         BillingStatus
+  paymentId      String? // Stripe Payment ID
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  PaymentHistory PaymentHistory[]
+}
+
+// PaymentHistory model to track payments, integrated with Stripe
+model PaymentHistory {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String        @db.ObjectId
+  billingId     String        @db.ObjectId
+  billing       Billing       @relation(fields: [billingId], references: [id])
+  paymentDate   DateTime
+  amount        Float
+  paymentStatus PaymentStatus
+  createdAt     DateTime      @default(now())
+  User          User          @relation(fields: [userId], references: [id])
+}
+
+// Message model for doctor-patient communication
+model Message {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  senderId    String        @db.ObjectId
+  recipientId String        @db.ObjectId
+  sender      User          @relation("Sender", fields: [senderId], references: [id])
+  recipient   User          @relation("Recipient", fields: [recipientId], references: [id])
+  content     String
+  timestamp   DateTime      @default(now())
+  status      MessageStatus
+  User        User?         @relation(fields: [userId], references: [id])
+  userId      String?       @db.ObjectId
+}
+
+// Enums for roles, statuses, and more
+enum UserRole {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum BillingStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  FACEBOOK
 }
