@@ -10,20 +10,67 @@ const create = async (payload: Profile, userId: string) => {
         });
 
         if (existingProfile) {
-            throw new ApiError(httpStatus.BAD_REQUEST, "Profile already exists for this user");
+            throw new ApiError(403, "Profile already exists for this user");
         }
 
         const result = await prisma.profile.create({
-            data: payload
+            data: { ...payload, userId }
         });
         return result;
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error creating profile:", error);
-        throw new ApiError(httpStatus.BAD_REQUEST, "Profile creation failed");
+        throw new ApiError(403, error);
+    }
+}
+
+const get = async (payload: string) => {
+    try {
+        const profile = await prisma.profile.findUnique({
+            where: { userId: payload }
+        });
+
+        if (!profile) {
+            throw new ApiError(404, "Profile not found");
+        }
+
+        return profile;
+
+    } catch (error: any) {
+        console.error("Error getting profile:", error);
+        throw new ApiError(500, error);
+    }
+}
+
+const update = async (payload: Partial<Profile>) => {
+    try {
+        const updatedProfile = await prisma.profile.update({
+            where: { userId: payload.userId },
+            data: payload
+        });
+        return updatedProfile;
+    } catch (error: any) {
+        console.error("Error updating profile:", error);
+        throw new ApiError(500, error);
+    }
+}
+
+const deleteRecord = async (payload: string) => {
+    try {
+        const result = await prisma.profile.delete({
+            where: { userId: payload }
+        });
+        return result;
+    } catch (error: any) {
+        console.error("Error deleting profile:", error);
+        throw new ApiError(500, error);
     }
 }
 
 export const ProfileService = {
-    create
+    create,
+    get,
+    update,
+    deleteRecord
 }
+

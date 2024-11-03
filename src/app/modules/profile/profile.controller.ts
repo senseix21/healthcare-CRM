@@ -13,13 +13,27 @@ const create = catchAsync(async (req, res) => {
 
     sendResponse(res, {
         success: true,
-        statusCode: httpStatus.OK,
+        statusCode: 200,
         message: "Profile created successfully",
         data: result
     })
 });
 
+const get = catchAsync(async (req, res) => {
+    const accessToken: any = req.headers.authorization;
+    const decodedToken = jwtHelpers.verifyToken(accessToken, config.jwt.secret as Secret);
+    const userId = decodedToken.userId;
+    const result = await ProfileService.get(userId);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: 200,
+        message: "Profile fetched successfully",
+        data: result
+    })
+})
 
 export const ProfileController = {
-    create
+    create,
+    get
 }
