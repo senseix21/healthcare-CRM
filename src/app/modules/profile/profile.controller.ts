@@ -33,7 +33,30 @@ const get = catchAsync(async (req, res) => {
     })
 })
 
+const update = catchAsync(async (req, res) => {
+    const result = await ProfileService.update(req.body, req.params.id);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: 200,
+        message: "Profile updated successfully",
+        data: result
+    })
+});
+const deleteRecord = catchAsync(async (req, res) => {
+    const result = await ProfileService.deleteRecord(req.params.id);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: 200,
+        message: "Profile deleted successfully",
+        data: result
+    })
+});
+
 export const ProfileController = {
     create,
-    get
+    get,
+    update,
+    deleteRecord
 }

@@ -42,10 +42,10 @@ const get = async (payload: string) => {
     }
 }
 
-const update = async (payload: Partial<Profile>) => {
+const update = async (payload: Partial<Profile>, id: string) => {
     try {
         const updatedProfile = await prisma.profile.update({
-            where: { userId: payload.userId },
+            where: { id: id },
             data: payload
         });
         return updatedProfile;
@@ -58,7 +58,7 @@ const update = async (payload: Partial<Profile>) => {
 const deleteRecord = async (payload: string) => {
     try {
         const result = await prisma.profile.delete({
-            where: { userId: payload }
+            where: { id: payload }
         });
         return result;
     } catch (error: any) {
