@@ -71,7 +71,7 @@ const deleteRecord = async (payload: string) => {
 
 
 
-const DoctorService = {
+export const DoctorService = {
     create,
     update,
     get,
