@@ -8,7 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model to manage all users (patients, doctors, admins) with role-based access control
 model User {
   id               String           @id @default(auto()) @map("_id") @db.ObjectId
   email            String           @unique
@@ -16,35 +15,30 @@ model User {
   role             UserRole         @default(PATIENT)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
-  provider         AuthProvider     @default(EMAIL) // For managing social logins
+  provider         AuthProvider     @default(EMAIL)
   googleId         String?          @unique
   facebookId       String?          @unique
   profile          Profile?
-  patients         Patient[]        @relation("DoctorPatients")
   appointments     Appointment[]
   billing          Billing[]
   paymentHistories PaymentHistory[]
-  Patient          Patient[]
-  Doctor           Doctor[]
-  Message          Message[]
   sentMessages     Message[]        @relation("Sender")
   receivedMessages Message[]        @relation("Recipient")
+  Patient          Patient?
+  Doctor           Doctor?
 }
 
-// Profile model to store detailed user profile information
 model Profile {
-  id             String           @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String           @unique @db.ObjectId
-  user           User             @relation(fields: [userId], references: [id])
-  name           String
-  dateOfBirth    DateTime?
-  gender         Gender?
-  phoneNumber    String?
-  address        String?
-  medicalHistory MedicalHistory[]
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String    @unique @db.ObjectId
+  user        User      @relation(fields: [userId], references: [id])
+  name        String
+  dateOfBirth DateTime?
+  gender      Gender?
+  phoneNumber String?
+  address     String?
 }
 
-// Patient model representing patients in the system
 model Patient {
   id             String           @id @default(auto()) @map("_id") @db.ObjectId
   userId         String           @unique @db.ObjectId
@@ -52,11 +46,9 @@ model Patient {
   medicalHistory MedicalHistory[]
   appointments   Appointment[]
   doctorId       String?          @db.ObjectId
-  doctor         User?            @relation("DoctorPatients", fields: [doctorId], references: [id])
   Doctor         Doctor?          @relation(fields: [doctorId], references: [id])
 }
 
-// Doctor model with additional fields for doctor-specific data
 model Doctor {
   id           String                 @id @default(auto()) @map("_id") @db.ObjectId
   userId       String                 @unique @db.ObjectId
@@ -65,10 +57,9 @@ model Doctor {
   experience   Int?
   appointments Appointment[]
   availability CalendarAvailability[]
-  patients     Patient[]
+  Patient      Patient[]
 }
 
-// MedicalHistory model to log patient health data
 model MedicalHistory {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   patientId String    @db.ObjectId
@@ -77,46 +68,53 @@ model MedicalHistory {
   notes     String?
   startDate DateTime
   endDate   DateTime?
-  Profile   Profile?  @relation(fields: [profileId], references: [id])
-  profileId String?   @db.ObjectId
 }
 
-// Appointment model to track doctor-patient appointments
+model CalendarAvailability {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  doctorId  String   @db.ObjectId
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, date, startTime, endTime]) // Ensures unique slots per doctor
+}
+
 model Appointment {
   id        String               @id @default(auto()) @map("_id") @db.ObjectId
   patientId String               @db.ObjectId
   doctorId  String               @db.ObjectId
   date      DateTime
+  startTime DateTime
+  endTime   DateTime
   status    AppointmentStatus
   patient   Patient              @relation(fields: [patientId], references: [id])
   doctor    Doctor               @relation(fields: [doctorId], references: [id])
   history   AppointmentHistory[]
   User      User?                @relation(fields: [userId], references: [id])
   userId    String?              @db.ObjectId
+
+  @@unique([patientId, doctorId, date, startTime]) // Ensures no duplicate appointments for the same time
 }
 
-// AppointmentHistory model to track changes in appointments
 model AppointmentHistory {
   id            String            @id @default(auto()) @map("_id") @db.ObjectId
   appointmentId String            @db.ObjectId
   appointment   Appointment       @relation(fields: [appointmentId], references: [id])
+  patientId     String            @db.ObjectId
+  doctorId      String            @db.ObjectId
+  completedAt   DateTime          @default(now())
+  duration      Int
   status        AppointmentStatus
-  changeDate    DateTime          @default(now())
+  notes         String?
+  followUpDate  DateTime?
+
+  @@index([patientId, doctorId, completedAt], name: "history_patient_doctor_completed_idx")
 }
 
-// CalendarAvailability model for doctors' availability
-model CalendarAvailability {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  doctorId  String   @db.ObjectId
-  doctor    Doctor   @relation(fields: [doctorId], references: [id])
-  dayOfWeek Int // 0 for Sunday, 6 for Saturday
-  startTime DateTime
-  endTime   DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// Billing model for patient payment and invoicing
 model Billing {
   id             String           @id @default(auto()) @map("_id") @db.ObjectId
   userId         String           @db.ObjectId
@@ -125,16 +123,15 @@ model Billing {
   currency       String           @default("USD")
   description    String
   status         BillingStatus
-  paymentId      String? // Stripe Payment ID
+  paymentId      String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   PaymentHistory PaymentHistory[]
 }
 
-// PaymentHistory model to track payments, integrated with Stripe
 model PaymentHistory {
   id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String        @unique @db.ObjectId
+  userId        String        @db.ObjectId
   billingId     String        @db.ObjectId
   billing       Billing       @relation(fields: [billingId], references: [id])
   paymentDate   DateTime
@@ -144,7 +141,6 @@ model PaymentHistory {
   User          User          @relation(fields: [userId], references: [id])
 }
 
-// Message model for doctor-patient communication
 model Message {
   id          String        @id @default(auto()) @map("_id") @db.ObjectId
   senderId    String        @db.ObjectId
@@ -154,11 +150,9 @@ model Message {
   content     String
   timestamp   DateTime      @default(now())
   status      MessageStatus
-  User        User?         @relation(fields: [userId], references: [id])
-  userId      String?       @unique @db.ObjectId
 }
 
-// Enums for roles, statuses, and more
+// Enums
 enum UserRole {
   ADMIN
   DOCTOR
@@ -170,6 +164,7 @@ enum AppointmentStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+  NO_SHOW
 }
 
 enum BillingStatus {

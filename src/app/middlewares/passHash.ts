@@ -11,7 +11,7 @@ export const hashPassword = async (req: Request, res: Response, next: NextFuncti
         req.body.password = hashedPassword;
         next();
 
-    } catch (error) {
+    } catch (error: any) {
         throw new ApiError(httpStatus.BAD_REQUEST, error)
     }
 };

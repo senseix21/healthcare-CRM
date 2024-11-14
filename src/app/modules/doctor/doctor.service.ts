@@ -7,7 +7,8 @@ const create = async (payload: Doctor, userId: string) => {
         // Check if the doctor already exists for the user
         const existingDoctor = await prisma.doctor.findUnique({
             where: {
-                userId: userId
+                userId: userId,
+
             }
         });
 
