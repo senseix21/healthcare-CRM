@@ -83,16 +83,30 @@ model CalendarAvailability {
   @@unique([doctorId, date, startTime, endTime]) // Ensures unique slots per doctor
 }
 
+model Service {
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  name         String // Name of the service (e.g., "General Consultation")
+  description  String? // Optional description of the service
+  price        Float // Price for the service
+  duration     Int // Duration of the service in minutes
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  appointments Appointment[]
+  histories    AppointmentHistory[]
+}
+
 model Appointment {
   id        String               @id @default(auto()) @map("_id") @db.ObjectId
   patientId String               @db.ObjectId
   doctorId  String               @db.ObjectId
+  serviceId String               @db.ObjectId
   date      DateTime
   startTime DateTime
   endTime   DateTime
   status    AppointmentStatus
   patient   Patient              @relation(fields: [patientId], references: [id])
   doctor    Doctor               @relation(fields: [doctorId], references: [id])
+  service   Service              @relation(fields: [serviceId], references: [id])
   history   AppointmentHistory[]
   User      User?                @relation(fields: [userId], references: [id])
   userId    String?              @db.ObjectId
@@ -103,7 +117,9 @@ model Appointment {
 model AppointmentHistory {
   id            String            @id @default(auto()) @map("_id") @db.ObjectId
   appointmentId String            @db.ObjectId
+  serviceId     String            @db.ObjectId
   appointment   Appointment       @relation(fields: [appointmentId], references: [id])
+  service       Service           @relation(fields: [serviceId], references: [id])
   patientId     String            @db.ObjectId
   doctorId      String            @db.ObjectId
   completedAt   DateTime          @default(now())
