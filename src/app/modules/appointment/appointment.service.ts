@@ -186,7 +186,7 @@ export default {
 
 
 export const AppointmentService = {
-    create,
+    create: createAppointment,
     getAppointmentById,
     getAllAppointments,
     update: updateAppointment,

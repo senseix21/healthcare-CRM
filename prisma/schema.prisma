@@ -58,6 +58,7 @@ model Doctor {
   appointments Appointment[]
   availability CalendarAvailability[]
   Patient      Patient[]
+  Service      Service[]
 }
 
 model MedicalHistory {
@@ -89,6 +90,8 @@ model Service {
   description  String? // Optional description of the service
   price        Float // Price for the service
   duration     Int // Duration of the service in minutes
+  doctorId     String               @db.ObjectId // Foreign key to associate with a doctor
+  doctor       Doctor               @relation(fields: [doctorId], references: [id])
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   appointments Appointment[]

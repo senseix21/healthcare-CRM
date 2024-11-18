@@ -16,12 +16,13 @@ const createAppointment = catchAsync(async (req: Request, res: Response) => {
     const userId = decodedToken.userId;
 
     // Extract the appointment details from the request body
-    const { doctorId, date, startTime, endTime } = req.body;
+    const { doctorId, serviceId, date, startTime, endTime } = req.body;
 
     // Call the service to create an appointment
     const result = await AppointmentService.create(
         doctorId,
         userId,
+        serviceId,
         date,
         startTime,
         endTime
