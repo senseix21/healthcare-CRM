@@ -48,6 +48,7 @@ const handlePaymentSuccess = (async (paymentIntentId: string): Promise<void> => 
             paymentStatus: PaymentStatus.SUCCESS,
             paymentDate: new Date(),
             createdAt: new Date(),
+            currency: paymentIntent.currency, // Add the currency field//+
         },
     });
 });
@@ -75,10 +76,11 @@ const handlePaymentFailure = (async (paymentIntentId: string): Promise<void> => 
         data: {
             userId,
             billingId,
-            amount: paymentIntent.amount / 100, // Convert to original currency
+            amount: paymentIntent.amount / 100,
             paymentStatus: PaymentStatus.FAILED,
             paymentDate: new Date(),
             createdAt: new Date(),
+            currency: paymentIntent.currency,
         },
     });
 });

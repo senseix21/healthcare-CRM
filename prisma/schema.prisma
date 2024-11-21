@@ -1,4 +1,3 @@
-// schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,24 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// **USER MANAGEMENT**
 model User {
-  id               String           @id @default(auto()) @map("_id") @db.ObjectId
-  email            String           @unique
-  password         String? // Nullable for social sign-in users
-  role             UserRole         @default(PATIENT)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  provider         AuthProvider     @default(EMAIL)
-  googleId         String?          @unique
-  facebookId       String?          @unique
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  email      String       @unique
+  password   String? // Nullable for social sign-in
+  role       UserRole     @default(PATIENT)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  provider   AuthProvider @default(EMAIL)
+  googleId   String?
+  facebookId String?
+
   profile          Profile?
   appointments     Appointment[]
   billing          Billing[]
   paymentHistories PaymentHistory[]
   sentMessages     Message[]        @relation("Sender")
   receivedMessages Message[]        @relation("Recipient")
-  Patient          Patient?
-  Doctor           Doctor?
+  doctorProfile    Doctor?
+  patientProfile   Patient?
 }
 
 model Profile {
@@ -45,8 +46,6 @@ model Patient {
   user           User             @relation(fields: [userId], references: [id])
   medicalHistory MedicalHistory[]
   appointments   Appointment[]
-  doctorId       String?          @db.ObjectId
-  Doctor         Doctor?          @relation(fields: [doctorId], references: [id])
 }
 
 model Doctor {
@@ -57,8 +56,7 @@ model Doctor {
   experience   Int?
   appointments Appointment[]
   availability CalendarAvailability[]
-  Patient      Patient[]
-  Service      Service[]
+  services     Service[]
 }
 
 model MedicalHistory {
@@ -71,6 +69,7 @@ model MedicalHistory {
   endDate   DateTime?
 }
 
+// **CALENDAR MANAGEMENT**
 model CalendarAvailability {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   doctorId  String   @db.ObjectId
@@ -81,40 +80,42 @@ model CalendarAvailability {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([doctorId, date, startTime, endTime]) // Ensures unique slots per doctor
+  @@unique([doctorId, date, startTime, endTime]) // Prevent overlapping slots
 }
 
+// **SERVICE MANAGEMENT**
 model Service {
-  id           String               @id @default(auto()) @map("_id") @db.ObjectId
-  name         String // Name of the service (e.g., "General Consultation")
-  description  String? // Optional description of the service
-  price        Float // Price for the service
-  duration     Int // Duration of the service in minutes
-  doctorId     String               @db.ObjectId // Foreign key to associate with a doctor
-  doctor       Doctor               @relation(fields: [doctorId], references: [id])
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  appointments Appointment[]
-  histories    AppointmentHistory[]
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  name               String // Service name (e.g., "Consultation")
+  description        String? // Optional description
+  price              Float // Base price for service
+  duration           Int // Service duration (in minutes)
+  doctorId           String               @db.ObjectId
+  doctor             Doctor               @relation(fields: [doctorId], references: [id])
+  appointments       Appointment[]
+  AppointmentHistory AppointmentHistory[]
 }
 
+// **APPOINTMENTS & HISTORY**
 model Appointment {
-  id        String               @id @default(auto()) @map("_id") @db.ObjectId
-  patientId String               @db.ObjectId
-  doctorId  String               @db.ObjectId
-  serviceId String               @db.ObjectId
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  patientId String            @db.ObjectId
+  doctorId  String            @db.ObjectId
+  serviceId String            @db.ObjectId
   date      DateTime
   startTime DateTime
   endTime   DateTime
-  status    AppointmentStatus
-  patient   Patient              @relation(fields: [patientId], references: [id])
-  doctor    Doctor               @relation(fields: [doctorId], references: [id])
-  service   Service              @relation(fields: [serviceId], references: [id])
-  history   AppointmentHistory[]
-  User      User?                @relation(fields: [userId], references: [id])
-  userId    String?              @db.ObjectId
+  status    AppointmentStatus @default(PENDING)
+  notes     String? // Optional notes for the appointment
 
-  @@unique([patientId, doctorId, date, startTime]) // Ensures no duplicate appointments for the same time
+  patient Patient              @relation(fields: [patientId], references: [id])
+  doctor  Doctor               @relation(fields: [doctorId], references: [id])
+  service Service              @relation(fields: [serviceId], references: [id])
+  history AppointmentHistory[]
+  User    User?                @relation(fields: [userId], references: [id])
+  userId  String?              @db.ObjectId
+
+  @@unique([patientId, doctorId, date, startTime]) // Prevent overlapping appointments
 }
 
 model AppointmentHistory {
@@ -126,26 +127,30 @@ model AppointmentHistory {
   patientId     String            @db.ObjectId
   doctorId      String            @db.ObjectId
   completedAt   DateTime          @default(now())
-  duration      Int
+  duration      Int // Time spent
   status        AppointmentStatus
   notes         String?
   followUpDate  DateTime?
 
-  @@index([patientId, doctorId, completedAt], name: "history_patient_doctor_completed_idx")
+  @@index([patientId, doctorId, completedAt])
 }
 
+// **BILLING & PAYMENTS**
 model Billing {
-  id             String           @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String           @db.ObjectId
-  user           User             @relation(fields: [userId], references: [id])
-  amount         Float
-  currency       String           @default("USD")
-  description    String
-  status         BillingStatus
-  paymentId      String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  PaymentHistory PaymentHistory[]
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String        @db.ObjectId
+  user        User          @relation(fields: [userId], references: [id])
+  amount      Float
+  currency    String        @default("USD")
+  description String // Description for billing
+  status      BillingStatus @default(PENDING)
+  paymentId   String? // Optional link to PaymentHistory
+  externalRef String? // Payment gateway reference ID
+  metadata    Json? // Store extra payment details as JSON
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  payments PaymentHistory[]
 }
 
 model PaymentHistory {
@@ -155,11 +160,16 @@ model PaymentHistory {
   billing       Billing       @relation(fields: [billingId], references: [id])
   paymentDate   DateTime
   amount        Float
-  paymentStatus PaymentStatus
+  currency      String
+  paymentStatus PaymentStatus @default(PENDING)
+  gateway       String? // Gateway name (e.g., "Stripe", "PayPal")
+  externalRef   String? // Reference ID from gateway
+  metadata      Json? // Store additional payment data
   createdAt     DateTime      @default(now())
   User          User          @relation(fields: [userId], references: [id])
 }
 
+// **MESSAGING**
 model Message {
   id          String        @id @default(auto()) @map("_id") @db.ObjectId
   senderId    String        @db.ObjectId
@@ -168,10 +178,10 @@ model Message {
   recipient   User          @relation("Recipient", fields: [recipientId], references: [id])
   content     String
   timestamp   DateTime      @default(now())
-  status      MessageStatus
+  status      MessageStatus @default(SENT)
 }
 
-// Enums
+// **ENUMS**
 enum UserRole {
   ADMIN
   DOCTOR

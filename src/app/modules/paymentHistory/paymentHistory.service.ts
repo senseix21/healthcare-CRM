@@ -10,6 +10,8 @@ const createPaymentHistory = async (data: PaymentHistory) => {
             amount: data.amount,
             paymentStatus: data.paymentStatus,
             paymentDate: data.paymentDate,
+            createdAt: data.createdAt,
+            currency: data.currency, // Add the currency field if necessary
         },
     });
 
